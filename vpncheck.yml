@@ -1,0 +1,39 @@
+---
+- name: // PLAY1 Check ASAs for session and match in ACL rule. //
+  hosts: asa
+  gather_facts: no
+
+  tasks:
+  - name: Execute vpnsession command
+    asa_command:
+      commands:
+          - show vpn-sessiondb svc filter name {{term_user}}
+          - show vpn-sessiondb webvpn filter name {{term_user}}
+          - show vpn-sessiondb anyconnect filter name {{term_user}}
+    register: session_status
+    changed_when:
+        - session_status.stdout_lines[0][0] is not search("There are presently no active sessions") or
+          session_status.stdout_lines[1][0] is not search("There are presently no active sessions") or
+          session_status.stdout_lines[2][0] is not search("There are presently no active sessions")
+
+  - set_fact:
+        sessionfound: "{{ EXIST if session_status.changed == true else 'dont exist' }}"
+
+  - name: Terminate if session found
+    when: sessionfound == true
+    asa_command:
+      commands:
+          - vpn-sessiondb logoff name {{term_user}} noconfirm
+    register: afterlogoff_status
+    changed_when:
+        - afterlogoff_status.stdout_lines[0][0] is search("logged off")
+
+  - set_fact:
+        sessionterminated: "{{ 'performed' if afterlogoff_status.changed == true else 'not required' }}"
+
+  - name: / Print VPN session status /
+    debug:
+      msg:
+        - ---------------------------------------------------------
+        - "VPN Session {{ sessionfound }}, and loggoff action {{ sessionterminated }} for user {{ term_user }} "
+        - ---------------------------------------------------------
