@@ -13,4 +13,4 @@ install:
 # If any of these tasks fail, the entire build fails immediately.
 before_script:
   - "make lint"
-- "make unit"
+  - "make unit"
